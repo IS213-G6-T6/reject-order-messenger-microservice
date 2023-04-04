@@ -142,7 +142,7 @@ def processRejectOrder(order):
     
     # Send TWILIO SMS notification
     message = client.messages.create(
-        body="Order Rejected",
+        body="Hawker-Management: Order " + orderID + " Rejected, Your Payment Has Been Refunded",
         from_ = twilio_phone_number,
         to = receipient
     )
