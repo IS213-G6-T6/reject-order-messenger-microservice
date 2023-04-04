@@ -46,14 +46,14 @@ def reject_order():
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             ex_str = str(e) + " at " + str(exc_type) + ": " + fname + ": line " + str(exc_tb.tb_lineno)
             print(ex_str)
-            amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="reject.error", body=json.dumps(ex_str), properties=pika.BasicProperties(delivery_mode = 2))
+            amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="reject.error", body=json.dumps({'type': "reject_order", 'info': "reject_order.py Internal Error"}), properties=pika.BasicProperties(delivery_mode = 2))
             return jsonify({
                 "code": 500,
                 "message": "reject_order.py internal error: " + ex_str
             }), 500
 
     # if reached here, not a JSON request.
-    amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="reject.error", body=json.dumps("Invalid JSON input: " + str(request.get_data())), properties=pika.BasicProperties(delivery_mode = 2))
+    amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="reject.error", body=json.dumps({'type': "reject_order", 'info': "Invalid JSON Input"}), properties=pika.BasicProperties(delivery_mode = 2))
     return jsonify({
         "code": 400,
         "message": "Invalid JSON input: " + str(request.get_data())
@@ -85,7 +85,7 @@ def processRejectOrder(order):
         # continue even if this invocation fails
         print("Order status ({:d}) sent to the error microservice:".format(
             code), order_status)
-        amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="rejectupdateorder.error", body=json.dumps({"message": "Order rejection failure sent for error handling."}), properties=pika.BasicProperties(delivery_mode = 2))
+        amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="rejectupdateorder.error", body=json.dumps({'type': "reject_order", 'info': "Order rejection failed."}), properties=pika.BasicProperties(delivery_mode = 2))
     # 7. Return error
         return {
             "code": 500,
@@ -103,7 +103,7 @@ def processRejectOrder(order):
     # if a failure, send it to the error microservice.
     code = refund_result["code"]
     if code not in range(200, 300):
-        amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="rejectrefund.error", body=json.dumps({"message": "Refund error sent for error handling."}), properties=pika.BasicProperties(delivery_mode = 2))
+        amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="rejectrefund.error", body=json.dumps({'type': "reject_error", 'info': "Refund error sent"}), properties=pika.BasicProperties(delivery_mode = 2))
     # Inform the error microservice
         print('\n\n-----Invoking error microservice as refund fails-----')
         invoke_http(error_URL, method="POST", json=refund_result)
@@ -124,7 +124,7 @@ def processRejectOrder(order):
     order_refund_status = invoke_http(order_URL + "/" + orderID, method="PUT", json={"status": "reject order, payment refunded"})
     code = order_refund_status["code"]
     if code not in range(200, 300):
-        amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="updaterefundedorder.error", body=json.dumps({"message": "update order Refunded error sent for error handling."}), properties=pika.BasicProperties(delivery_mode = 2))
+        amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="updaterefundedorder.error", body=json.dumps({'type': "reject_error", 'info': "Payment refund status failed to update"}), properties=pika.BasicProperties(delivery_mode = 2))
     # Inform the error microservice
         print('\n\n-----Invoking error microservice as refund fails-----')
         invoke_http(error_URL, method="POST", json=order_refund_status)
@@ -162,8 +162,8 @@ def processRejectOrder(order):
     #             },
     #             "message": "order Refunded update error sent for error handling."
     #         }
-    amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="twilio.success", body=json.dumps({"code": 200, "message": "twilio successfully send"}), properties=pika.BasicProperties(delivery_mode = 2))
-    amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="reject.success", body=json.dumps({"order_status": order_status, "refund_result": refund_result, "order_refunded_update_result": order_refund_status}), properties=pika.BasicProperties(delivery_mode = 2))
+    amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="twilio.success", body=json.dumps({"code": 200, "type": "reject_order", "info": "twilio successfully send"}), properties=pika.BasicProperties(delivery_mode = 2))
+    amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="reject.success", body=json.dumps({"type": "reject_order", "info": "Order Refunded Successfully", "order_status": order_status, "refund_result": refund_result, "order_refunded_update_result": order_refund_status}), properties=pika.BasicProperties(delivery_mode = 2))
     return {
         "code": 201,
         "data": {
