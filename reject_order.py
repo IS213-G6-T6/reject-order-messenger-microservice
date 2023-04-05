@@ -105,8 +105,6 @@ def processRejectOrder(order):
     if code not in range(200, 300):
         amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="rejectrefund.error", body=json.dumps({'type': "reject_error", 'info': "Refund error sent"}), properties=pika.BasicProperties(delivery_mode = 2))
     # Inform the error microservice
-        print('\n\n-----Invoking error microservice as refund fails-----')
-        invoke_http(error_URL, method="POST", json=refund_result)
         print("Shipping status ({:d}) sent to the error microservice:".format(
             code), refund_result)
 
@@ -126,8 +124,6 @@ def processRejectOrder(order):
     if code not in range(200, 300):
         amqp_setup.channel.basic_publish(exchange=amqp_setup.exchangename, routing_key="updaterefundedorder.error", body=json.dumps({'type': "reject_error", 'info': "Payment refund status failed to update"}), properties=pika.BasicProperties(delivery_mode = 2))
     # Inform the error microservice
-        print('\n\n-----Invoking error microservice as refund fails-----')
-        invoke_http(error_URL, method="POST", json=order_refund_status)
         print("Shipping status ({:d}) sent to the error microservice:".format(
             code), order_refund_status)
 
